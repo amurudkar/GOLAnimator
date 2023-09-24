@@ -5,26 +5,34 @@
 
 class GOLAnimator {
 public:
-	GOLAnimator(cv::Size resolution = cv::Size(25, 25)) : mResolution(resolution) {};
+	GOLAnimator(const cv::Size &resolution = cv::Size(25, 25));
 
-	void setResolution(cv::Size resolution);
+	void setResolution(const cv::Size &resolution);
 
 	bool update();
+
+	void setInvertColors(bool invert);
+
+	bool getInvertColors();
 
 	void reset();
 
 	const cv::Mat& getFrame();
 
 private:
-	int getNeighborCount(const cv::Mat& frame, int row, int col);
-
 	bool matIsEqual(const cv::Mat& mat1, const cv::Mat& mat2);
 
 	cv::Size mResolution;
 
 	cv::Mat mMask;
-	cv::Mat mFrame;
-	cv::Mat mWhite;
+	cv::Mat mTempMask;
+	cv::Mat mFrame, mSum;
+	cv::Mat mLifeColor;
+	cv::Mat mSummationKernel;
+
 	std::deque<cv::Mat> mOldMasks;
+
+	bool invertColors;
+	int mMaxPeriodicity;
 
 };

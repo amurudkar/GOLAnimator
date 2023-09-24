@@ -6,49 +6,67 @@
 using namespace std;
 using namespace cv;
 
-void GOLAnimator::setResolution(cv::Size resolution)
+GOLAnimator::GOLAnimator(const Size &resolution) :
+mMaxPeriodicity(5)
+{
+	setResolution(resolution);
+	setInvertColors(false);
+	mSummationKernel = Mat::ones(3, 3, CV_8UC1);
+};
+
+
+void GOLAnimator::setResolution(const Size &resolution)
 {
 	mResolution = resolution;
 	reset();
 }
 
-bool GOLAnimator::update()
+void GOLAnimator::setInvertColors(bool invert) {
+	invertColors = invert;
+	reset();
+}
+
+bool GOLAnimator::getInvertColors()
 {
-	Mat newMask;
-	
-	if (mOldMasks.size() == 2)
+    return invertColors;
+}
+
+bool GOLAnimator::update()
+{	
+	if (mOldMasks.size() == mMaxPeriodicity)
 		mOldMasks.pop_front();
 
-	mOldMasks.push_back(mMask.clone());
+	mOldMasks.emplace_back(mMask.clone());
 
-	mFrame.setTo(0);
-	newMask = Mat::zeros(mResolution.width, mResolution.width, CV_8UC1);
-	for (int i = 0; i < mMask.rows; ++i)
-		for (int j = 0; j < mMask.cols; ++j) {
-			auto sum = getNeighborCount(mMask, i, j);
-			const auto cElem = mMask.at<unsigned char>(i, j);
-			auto& nElem = newMask.at<unsigned char>(i, j);
-			
-			if (sum <= 1 || sum >= 4)
-				nElem = 0;
-			else if (sum == 3)
-				nElem = 1;
-			else if (sum == 2)
-				nElem = cElem;
+	mFrame.setTo(invertColors ? 255 : 0);
+	mTempMask.setTo(0);
+
+	filter2D(mMask, mSum, -1, mSummationKernel);
+	mSum -= mMask;
+	mTempMask.setTo(0, (mSum <= 1) + (mSum >= 4));
+	mTempMask.setTo(1, mSum == 3);
+	mMask.copyTo(mTempMask, mSum == 2);
+
+	swap(mMask, mTempMask);
+	mLifeColor.copyTo(mFrame, mMask);
+
+	auto match = false;
+	auto periodicity = 0;
+
+	for(int i = mOldMasks.size() - 1; i >= 0; --i) {
+		match |= matIsEqual(mMask, mOldMasks[i]);
+		if(match) {
+			periodicity = mOldMasks.size() - i;
+			break;
 		}
+ 	}
 
-	swap(mMask, newMask);
-
-	mWhite.copyTo(mFrame, mMask);
-
-	auto matchF = matIsEqual(mMask, mOldMasks.front());
-	auto matchB = matIsEqual(mMask, mOldMasks.back());
-
-	auto hasBlinkers = (mOldMasks.size() == 2) && matchF;
-	auto isStable = ((mOldMasks.size() == 1) && matchF) || matchB;
+	auto hasBlinkers = match && (periodicity > 1);
+	auto isStable = match && (periodicity == 1);
 
 	if (hasBlinkers || isStable) {
-		cout << (hasBlinkers ? "Blinkers!" : "") << (isStable ? "Still life!" : "") << endl;
+		cout << (hasBlinkers ? "Blinkers, max periodicity = " + to_string(periodicity) + ". ": "");
+		cout << (isStable ? "Still life!" : "") << endl;
 		return false;
 	}
 
@@ -58,42 +76,25 @@ bool GOLAnimator::update()
 void GOLAnimator::reset()
 {
 	mMask = Mat::zeros(mResolution.width, mResolution.width, CV_8UC1);
-	mFrame = Mat::zeros(mResolution.width, mResolution.width, CV_8UC1);
-	mWhite = Mat::ones(mResolution.width, mResolution.width, CV_8UC1) * 255;
+	mTempMask = Mat::zeros(mResolution.width, mResolution.width, CV_8UC1);
+	mFrame = Mat::ones(mResolution.width, mResolution.width, CV_8UC1) * (invertColors ? 255 : 0);
+	mLifeColor = Mat::ones(mResolution.width, mResolution.width, CV_8UC1) * (invertColors ? 0 : 255);
 
 	srand(static_cast<unsigned int>(time(0)));
 	for (int i = 0; i < mMask.rows; ++i)
 		for (int j = 0; j < mMask.cols; ++j)
 			mMask.at<unsigned char>(i, j) = static_cast<unsigned char>(rand() % 2);
 
-	mWhite.copyTo(mFrame, mMask);
+	mLifeColor.copyTo(mFrame, mMask);
 	mOldMasks.clear();
 }
 
-const cv::Mat &GOLAnimator::getFrame()
+const Mat &GOLAnimator::getFrame()
 {
 	return mFrame;
 }
 
-int GOLAnimator::getNeighborCount(const cv::Mat & frame, int row, int col)
+bool GOLAnimator::matIsEqual(const Mat & mat1, const Mat & mat2)
 {
-	int sum = 0;
-	int starti = max(0, row - 1);
-	int endi = min(frame.rows - 1, row  + 1);
-	int startj = max(0, col - 1);
-	int endj = min(frame.cols - 1, col + 1);
-
-	for (int i = starti; i <= endi; ++i)
-		for (int j = startj; j <= endj; ++j)
-			sum += static_cast<int>(frame.at<unsigned char>(i, j));
-
-	sum -= static_cast<int>(frame.at<unsigned char>(row, col));
-	return sum;
-}
-
-bool GOLAnimator::matIsEqual(const cv::Mat & mat1, const cv::Mat & mat2)
-{
-	cv::Mat diff = mat1 != mat2;
-	auto d = countNonZero(diff);
-	return d == 0;
+	return countNonZero(mat1 != mat2) == 0;
 }
