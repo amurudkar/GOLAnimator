@@ -2,7 +2,7 @@
 
 This is a simple program that visualizes [Conway's Game of Life](https://en.wikipedia.org/wiki/Conway's_Game_of_Life) using OpenCV in C++.
 
-The GOLAnimator class has the ability to detect still lifes and oscillators/blinkers with period up to 5. When these are detected, the main function reduced refresh rate to visualize the condition, then triggers a reset.
+The GOLAnimator class has the ability to detect still lifes and oscillators/blinkers with period up to 5. When these are detected, the main function reduces refresh rate to visualize the condition, then triggers a reset.
 
 <img title="example" alt="Example run" src="./images/output.gif">
 
