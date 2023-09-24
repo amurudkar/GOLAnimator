@@ -1,5 +1,4 @@
 ﻿// GOLAnimator.cpp : Defines the entry point for the application.
-//
 
 #include "GOLAnimator.h"
 #include <deque>
@@ -16,12 +15,33 @@ int main()
 	mt19937 eng(rd()); // seed the generator
 	uniform_int_distribution<> distr(25, 200); // define the range
 
+	int dispWidth = 600;
+	int dispHeight = 600;
+	string winName = "GOL";
+	namedWindow(winName, WINDOW_KEEPRATIO);
+	resizeWindow(winName, dispWidth, dispHeight);
 	auto g = GOLAnimator();
 
+	auto res = false;
 	while (true) {
-		auto a = distr(eng);
-		g.setResolution(Size(a, a));
-		g.run();
+		if(!res) {
+			g.reset();
+		}
+
+		res = g.update();
+		auto frame = g.getFrame();
+		auto waitTime = res ? 33 : 2000;
+
+		imshow(winName, frame);
+		auto k = waitKey(waitTime);
+		if(k == 'q')
+			break;
+		else if (k == 'r')
+			res = false;
+		else if (k == 'c') {
+			auto a = distr(eng);
+			g.setResolution(Size(a, a));
+		}
 	}
 	return 0;
 }
@@ -29,71 +49,70 @@ int main()
 void GOLAnimator::setResolution(cv::Size resolution)
 {
 	mResolution = resolution;
+	reset();
 }
 
-bool GOLAnimator::run()
+bool GOLAnimator::update()
 {
-	Mat mask = Mat::zeros(mResolution.width, mResolution.width, CV_8UC1);
-	Mat frame = Mat::zeros(mResolution.width, mResolution.width, CV_8UC1);
-	Mat white = Mat::ones(mResolution.width, mResolution.width, CV_8UC1) * 255;
-	
-	srand(static_cast<unsigned int>(time(0)));
-	for (int i = 0; i < mask.rows; ++i)
-		for (int j = 0; j < mask.cols; ++j)
-			mask.at<unsigned char>(i, j) = static_cast<unsigned char>(rand() % 2);
-
-	white.copyTo(frame, mask);
-
-	string winName = "GOL";
-	namedWindow(winName, WINDOW_KEEPRATIO);
-	resizeWindow(winName, 600, 600);
-	
-	deque<Mat> oldMasks;
 	Mat newMask;
-	while (true) {
-		if (oldMasks.size() == 2)
-			oldMasks.pop_front();
+	
+	if (mOldMasks.size() == 2)
+		mOldMasks.pop_front();
 
-		oldMasks.push_back(mask.clone());
+	mOldMasks.push_back(mMask.clone());
 
-		frame = Mat::zeros(mResolution.width, mResolution.width, CV_8UC1);
-		newMask = Mat::zeros(mResolution.width, mResolution.width, CV_8UC1);
-		for (int i = 0; i < mask.rows; ++i)
-			for (int j = 0; j < mask.cols; ++j) {
-				auto sum = getNeighborCount(mask, i, j);
-				const auto cElem = mask.at<unsigned char>(i, j);
-				auto& nElem = newMask.at<unsigned char>(i, j);
-				
-				if (sum <= 1 || sum >= 4)
-					nElem = 0;
-				else if (sum == 3)
-					nElem = 1;
-				else if (sum == 2)
-					nElem = cElem;
-			}
-
-		swap(mask, newMask);
-
-		white.copyTo(frame, mask);
-		imshow(winName, frame);
-
-		auto k = waitKey(33);
-		if (k == 'q')
-			return false;
-
-		auto matchF = matIsEqual(mask, oldMasks.front());
-		auto matchB = matIsEqual(mask, oldMasks.back());
-
-		auto hasBlinkers = (oldMasks.size() == 2) && matchF;
-		auto isStable = ((oldMasks.size() == 1) && matchF) || matchB;
-
-		if (hasBlinkers || isStable) {
-			cout << (hasBlinkers ? "Blinkers!" : "") << (isStable ? "Stable!" : "") << endl;
-			waitKey(2000);
-			return true;
+	mFrame.setTo(0);
+	newMask = Mat::zeros(mResolution.width, mResolution.width, CV_8UC1);
+	for (int i = 0; i < mMask.rows; ++i)
+		for (int j = 0; j < mMask.cols; ++j) {
+			auto sum = getNeighborCount(mMask, i, j);
+			const auto cElem = mMask.at<unsigned char>(i, j);
+			auto& nElem = newMask.at<unsigned char>(i, j);
+			
+			if (sum <= 1 || sum >= 4)
+				nElem = 0;
+			else if (sum == 3)
+				nElem = 1;
+			else if (sum == 2)
+				nElem = cElem;
 		}
+
+	swap(mMask, newMask);
+
+	mWhite.copyTo(mFrame, mMask);
+
+	auto matchF = matIsEqual(mMask, mOldMasks.front());
+	auto matchB = matIsEqual(mMask, mOldMasks.back());
+
+	auto hasBlinkers = (mOldMasks.size() == 2) && matchF;
+	auto isStable = ((mOldMasks.size() == 1) && matchF) || matchB;
+
+	if (hasBlinkers || isStable) {
+		cout << (hasBlinkers ? "Blinkers!" : "") << (isStable ? "Stable!" : "") << endl;
+		return false;
 	}
-	return false;
+
+	return true;
+}
+
+void GOLAnimator::reset()
+{
+	mMask = Mat::zeros(mResolution.width, mResolution.width, CV_8UC1);
+	mFrame = Mat::zeros(mResolution.width, mResolution.width, CV_8UC1);
+	mWhite = Mat::ones(mResolution.width, mResolution.width, CV_8UC1) * 255;
+
+	srand(static_cast<unsigned int>(time(0)));
+	for (int i = 0; i < mMask.rows; ++i)
+		for (int j = 0; j < mMask.cols; ++j)
+			mMask.at<unsigned char>(i, j) = static_cast<unsigned char>(rand() % 2);
+
+	mWhite.copyTo(mFrame, mMask);
+	mOldMasks.clear();
+}
+
+const cv::Mat &GOLAnimator::getFrame()
+{
+	return mFrame;
 }
 
 int GOLAnimator::getNeighborCount(const cv::Mat & frame, int row, int col)

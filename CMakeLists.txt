@@ -1,6 +1,7 @@
 ﻿# CMakeList.txt : CMake project for GOLAnimator, include source and define
 # project specific logic here.
 #
+project("GOLAnimator")
 cmake_minimum_required (VERSION 3.8)
 
 # Add OpenCV
