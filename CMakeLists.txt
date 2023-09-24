@@ -8,7 +8,11 @@ cmake_minimum_required (VERSION 3.8)
 find_package(OpenCV REQUIRED)
 
 # Add source to this project's executable.
-add_executable (GOLAnimator "GOLAnimator.cpp" "GOLAnimator.h")
+add_executable (GOLAnimator 
+    main.cpp
+    GOLAnimator.cpp
+    GOLAnimator.h)
+    
 target_include_directories(GOLAnimator PRIVATE ${OpenCV_INCLUDE_DIRS})
 target_link_libraries(GOLAnimator ${OpenCV_LIBRARIES})
 
