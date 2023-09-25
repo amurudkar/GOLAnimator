@@ -22,6 +22,9 @@ public:
 private:
 	bool matIsEqual(const cv::Mat& mat1, const cv::Mat& mat2);
 
+	unsigned char getColorBg();
+	unsigned char getColorFg();
+
 	cv::Size mResolution;
 
 	cv::Mat mMask;
@@ -32,7 +35,8 @@ private:
 
 	std::deque<cv::Mat> mOldMasks;
 
-	bool invertColors;
-	int mMaxPeriodicity;
+	bool mInvertColors;
+	bool mIsFinished;
 
+	int mMaxPeriodicity;
 };

@@ -40,4 +40,5 @@ Install OpenCV using the [official instructions](https://opencv.org/get-started/
     |  i  | invert colors  |
     |  q  | quit   |
     |  r  | reset to random state |
+    | space | pause/resume |
     

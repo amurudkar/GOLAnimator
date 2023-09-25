@@ -23,6 +23,7 @@ int main()
 	auto res = false;
 	auto counter = 0;
 	auto countingDown = false;
+	auto pause = false;
 
 	cv::TickMeter tm;
 	size_t frameCnt = 0;
@@ -35,12 +36,13 @@ int main()
 		}
 		else if(countingDown && counter) {
 			--counter;
-			cout << "Countdown " << counter << endl;
 		}
 
-		tm.start();
-		res = g.update();
-		tm.stop();
+		if(!pause) {
+			tm.start();
+			res = g.update();
+			tm.stop();
+		}
 
 		if(!res && !countingDown) {
 			counter = 4; // 2 frames
@@ -62,6 +64,9 @@ int main()
 		}
 		else if (k == 'i') {
 			g.setInvertColors(!g.getInvertColors());
+		}
+		else if (k == ' ') {
+			pause = !pause;
 		}
 	}
 
